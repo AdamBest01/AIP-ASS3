@@ -2,7 +2,7 @@ from captureAgents import CaptureAgent
 import random, time, util, game
 from game import Directions, Actions
 from util import manhattanDistance
-
+from util import Queue
 def createTeam(firstIndex, secondIndex, isRed, first='OffensiveAgent', second='DefensiveAgent'):
     return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
@@ -22,30 +22,11 @@ class BaseAgent(CaptureAgent):
         foodGrid = self.getFood(gameState)
         foodList = foodGrid.asList()
         Positions = list(filter(lambda pos: pos not in BaseAgent.current_targets.values(), foodList))
-        
+
         if self.carrying >= self.maxCapacity or len(foodList) <= 2:
             self.current_target = self.getClosestPos(gameState, self.boundary)
         else:
-            enemy_positions = [gameState.getAgentPosition(i) for i in self.getOpponents(gameState) if gameState.getAgentPosition(i) is not None]
-            
-            # Step 1: Consider food density
-            food_density = {pos: sum(1 for other_pos in Positions if self.getMazeDistance(pos, other_pos) <= 2) for pos in Positions}
-            
-            # Step 2: Consider safety (distance from enemies)
-            safe_positions = list(filter(lambda pos: all(self.getMazeDistance(pos, enemy_pos) > 5 for enemy_pos in enemy_positions), Positions))
-            
-            # Step 3: Consider distance from current position
-            my_pos = gameState.getAgentState(self.index).getPosition()
-            dist_from_current_pos = {pos: self.getMazeDistance(my_pos, pos) for pos in Positions}
-
-            # Composite score based on the factors
-            score = lambda pos: food_density.get(pos, 0) - 0.5 * dist_from_current_pos.get(pos, 0)
-            
-            # Find the position with the highest score
-            if safe_positions:
-                self.current_target = max(safe_positions, key=score)
-            else:
-                self.current_target = max(Positions, key=score)
+            self.current_target = self.getClosestPos(gameState, Positions)
 
     def chooseAction(self, gameState):
         if self.current_target is None:
@@ -54,7 +35,7 @@ class BaseAgent(CaptureAgent):
         BaseAgent.current_targets[self.index] = self.current_target
 
         problem = PositionSearchProblem(gameState, self.current_target, self.index)
-        path = self.aStarSearch(problem)
+        path = self.bfsSearch(problem)
         
         if not path:
             actions = gameState.getLegalActions(self.index)
@@ -104,31 +85,36 @@ class BaseAgent(CaptureAgent):
                 boundary_location.append((j,i))
         return boundary_location
     
-    def aStarSearch(self, problem):        
-        from util import PriorityQueue
-        myPQ = util.PriorityQueue()
+    def bfsSearch(self, problem):
+    
+
+        myQueue = util.Queue()
         startState = problem.getStartState()
-        startNode = (startState, '',0, [])
-        heuristic = problem._manhattanDistance
-        myPQ.push(startNode,heuristic(startState))
+        startNode = (startState, '', 0, [])
+        myQueue.push(startNode)
         visited = set()
-        best_g = dict()
-        while not myPQ.isEmpty():
-            node = myPQ.pop()
+
+        while not myQueue.isEmpty():
+            node = myQueue.pop()
             state, action, cost, path = node
-            if (not state in visited) or cost < best_g.get(str(state)):
-                visited.add(state)
-                best_g[str(state)]=cost
-                if problem.isGoalState(state):
-                    path = path + [(state, action)]
-                    actions = [action[1] for action in path]
-                    del actions[0]
-                    return actions
-                for succ in problem.getSuccessors(state):
-                    succState, succAction, succCost = succ
-                    newNode = (succState, succAction, cost + succCost, path + [(node, action)])
-                    myPQ.push(newNode,heuristic(succState)+cost+succCost)
+
+            if state in visited:
+                continue
+            visited.add(state)
+
+            if problem.isGoalState(state):
+                path = path + [(state, action)]
+                actions = [action[1] for action in path]
+                del actions[0]
+                return actions
+
+            for succ in problem.getSuccessors(state):
+                succState, succAction, succCost = succ
+                newNode = (succState, succAction, cost + succCost, path + [(node, action)])
+                myQueue.push(newNode)
+
         return []
+
 
 class PositionSearchProblem:
     

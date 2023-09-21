@@ -15,37 +15,18 @@ class BaseAgent(CaptureAgent):
         self.carrying = 0
         self.current_target = None
         self.boundary = self.getBoundary(gameState)
-        self.maxCapacity = 5
+        self.maxCapacity = 6
         self.othersLocation = next(iter(set(self.getTeam(gameState)) - {self.index}))
         
     def determineCurrentTarget(self, gameState):
         foodGrid = self.getFood(gameState)
         foodList = foodGrid.asList()
         Positions = list(filter(lambda pos: pos not in BaseAgent.current_targets.values(), foodList))
-        
+
         if self.carrying >= self.maxCapacity or len(foodList) <= 2:
             self.current_target = self.getClosestPos(gameState, self.boundary)
         else:
-            enemy_positions = [gameState.getAgentPosition(i) for i in self.getOpponents(gameState) if gameState.getAgentPosition(i) is not None]
-            
-            # Step 1: Consider food density
-            food_density = {pos: sum(1 for other_pos in Positions if self.getMazeDistance(pos, other_pos) <= 2) for pos in Positions}
-            
-            # Step 2: Consider safety (distance from enemies)
-            safe_positions = list(filter(lambda pos: all(self.getMazeDistance(pos, enemy_pos) > 5 for enemy_pos in enemy_positions), Positions))
-            
-            # Step 3: Consider distance from current position
-            my_pos = gameState.getAgentState(self.index).getPosition()
-            dist_from_current_pos = {pos: self.getMazeDistance(my_pos, pos) for pos in Positions}
-
-            # Composite score based on the factors
-            score = lambda pos: food_density.get(pos, 0) - 0.5 * dist_from_current_pos.get(pos, 0)
-            
-            # Find the position with the highest score
-            if safe_positions:
-                self.current_target = max(safe_positions, key=score)
-            else:
-                self.current_target = max(Positions, key=score)
+            self.current_target = self.getClosestPos(gameState, Positions)
 
     def chooseAction(self, gameState):
         if self.current_target is None:

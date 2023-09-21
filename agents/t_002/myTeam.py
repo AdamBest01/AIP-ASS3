@@ -2,6 +2,7 @@ from captureAgents import CaptureAgent
 import random, time, util, game
 from game import Directions, Actions
 from util import manhattanDistance
+from util import Queue
 
 def createTeam(firstIndex, secondIndex, isRed, first='OffensiveAgent', second='DefensiveAgent'):
     return [eval(first)(firstIndex), eval(second)(secondIndex)]
@@ -15,7 +16,7 @@ class BaseAgent(CaptureAgent):
         self.carrying = 0
         self.current_target = None
         self.boundary = self.getBoundary(gameState)
-        self.maxCapacity = 5
+        self.maxCapacity = 6
         self.othersLocation = next(iter(set(self.getTeam(gameState)) - {self.index}))
         
     def determineCurrentTarget(self, gameState):
@@ -47,6 +48,7 @@ class BaseAgent(CaptureAgent):
             else:
                 self.current_target = max(Positions, key=score)
 
+
     def chooseAction(self, gameState):
         if self.current_target is None:
             self.determineCurrentTarget(gameState)
@@ -54,7 +56,7 @@ class BaseAgent(CaptureAgent):
         BaseAgent.current_targets[self.index] = self.current_target
 
         problem = PositionSearchProblem(gameState, self.current_target, self.index)
-        path = self.aStarSearch(problem)
+        path = self.bfsSearch(problem)
         
         if not path:
             actions = gameState.getLegalActions(self.index)
@@ -104,31 +106,36 @@ class BaseAgent(CaptureAgent):
                 boundary_location.append((j,i))
         return boundary_location
     
-    def aStarSearch(self, problem):        
-        from util import PriorityQueue
-        myPQ = util.PriorityQueue()
+    def bfsSearch(self, problem):
+    
+
+        myQueue = util.Queue()
         startState = problem.getStartState()
-        startNode = (startState, '',0, [])
-        heuristic = problem._manhattanDistance
-        myPQ.push(startNode,heuristic(startState))
+        startNode = (startState, '', 0, [])
+        myQueue.push(startNode)
         visited = set()
-        best_g = dict()
-        while not myPQ.isEmpty():
-            node = myPQ.pop()
+
+        while not myQueue.isEmpty():
+            node = myQueue.pop()
             state, action, cost, path = node
-            if (not state in visited) or cost < best_g.get(str(state)):
-                visited.add(state)
-                best_g[str(state)]=cost
-                if problem.isGoalState(state):
-                    path = path + [(state, action)]
-                    actions = [action[1] for action in path]
-                    del actions[0]
-                    return actions
-                for succ in problem.getSuccessors(state):
-                    succState, succAction, succCost = succ
-                    newNode = (succState, succAction, cost + succCost, path + [(node, action)])
-                    myPQ.push(newNode,heuristic(succState)+cost+succCost)
+
+            if state in visited:
+                continue
+            visited.add(state)
+
+            if problem.isGoalState(state):
+                path = path + [(state, action)]
+                actions = [action[1] for action in path]
+                del actions[0]
+                return actions
+
+            for succ in problem.getSuccessors(state):
+                succState, succAction, succCost = succ
+                newNode = (succState, succAction, cost + succCost, path + [(node, action)])
+                myQueue.push(newNode)
+
         return []
+
 
 class PositionSearchProblem:
     
